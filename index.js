@@ -1,14 +1,11 @@
-import axios from "axios"; // npm install axios
+// Puppeteer bot
+import scrapeHouseholdLimit from "./bot";
+//Discord
 
-async function getHouseholdLimit() {
-  try {
-    const res = await axios.get("https://www.usmint.gov/2025-laser-engraved-american-eagle-one-ounce-silver-proof-coin-25EALE.html/");
-    const data = res.data;
-    const householdLimit = data?.productLimits?.householdLimit;
-    return householdLimit;
-  } catch (err) {
-    console.error("Error fetching household limit:", err.message);
-  }
+
+//Main
+const urls = {
+    urlOne: "https://www.usmint.gov/2025-laser-engraved-american-eagle-one-ounce-silver-proof-coin-25EALE.html",
+    urlTwo: null,
 }
 
-getHouseholdLimit().then(limit => console.log(limit));
