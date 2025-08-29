@@ -53,8 +53,8 @@ client.on("messageCreate", async (message) => {
 
       URLS.urlOne.url = url;
       URLS.urlOne.mode = mode;
+      URLS.urlOne.alerted = false;
       message.reply(`\`URL 1\` -> (mode: ${URLS.urlOne.mode}) ${URLS.urlOne.url}`);
-      console.log(URLS);
 
     } else if (message.content.startsWith("!url2")) {
       const args = message.content.split(" ");
@@ -77,6 +77,7 @@ client.on("messageCreate", async (message) => {
 
       URLS.urlTwo.url = url;
       URLS.urlTwo.mode = mode;
+      URLS.urlTwo.alerted = false;
       message.reply(`\`URL 2\` -> (mode: ${URLS.urlTwo.mode}) ${URLS.urlTwo.url}`);
 
     } else if (message.content === "!listurls") {
