@@ -1,7 +1,8 @@
 import { safeScrape } from "./bot.js"; // safeScrape handles Cloudflare retries
 import client from "./discord.js";
 import { randomDelay } from "./utils.js";
-
+import dotenv from "dotenv";
+dotenv.config({quiet: true});
 const alertChannelId = "1409862539889872999"; 
 
 // URLs object
