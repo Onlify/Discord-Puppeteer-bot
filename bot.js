@@ -20,7 +20,7 @@ function rotateProxyIndex() {
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
-      headless: true,
+      headless: false,
       args: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
@@ -67,10 +67,6 @@ export async function scrapeHouseholdLimit(url) {
   // Random user agent
   // await page.setUserAgent(randomUserAgent());
   await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-  // await page.setViewport({
-  //   width: 1024 + Math.floor(Math.random() * 20),
-  //   height: 768 + Math.floor(Math.random() * 20),
-  // });
   const HARD_TIMEOUT = 45_000; // 45 seconds per page
 
   return new Promise(async (resolve) => {
@@ -81,7 +77,7 @@ export async function scrapeHouseholdLimit(url) {
     }, HARD_TIMEOUT);
 
     try {
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
 
       // await humanMouse(page);
       // await humanScroll(page, 2);
@@ -105,7 +101,7 @@ export async function scrapeHouseholdLimit(url) {
         return;
       }
 
-      await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 7_000 });
+      await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 20_000 });
 
       const limit = await page.evaluate(() => {
         let text = document.querySelector(".sticky-details .attributes .short-details div")?.innerText;
