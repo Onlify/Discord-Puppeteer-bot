@@ -19,7 +19,7 @@ function rotateProxyIndex() {
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
-      headless: false,
+      headless: true,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -66,18 +66,32 @@ export async function scrapeHouseholdLimit(url) {
 
   // Block heavy resources to reduce CPU
   await page.setRequestInterception(true);
-  page.on("request", (req) => {
-    const type = req.resourceType();
-    if (["image", "stylesheet", "font"].includes(type)) req.abort();
-    else req.continue();
-  });
+page.on("request", (req) => {
+  const url = req.url();
+  const type = req.resourceType();
+  const blockedDomains = [
+    "google-analytics.com",
+    "googletagmanager.com",
+    "quantserve.com",
+    "doubleclick.net",
+    "adzerk.net",
+  ];
+  const isResourceToBlock = ["image", "stylesheet", "font", "media"].includes(type);
+  const isDomainToBlock = blockedDomains.some(domain => url.includes(domain));
+
+  if (isResourceToBlock || isDomainToBlock) {
+    req.abort();
+  } else {
+    req.continue();
+  }
+});
 
   await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
   const PAGE_TIMEOUT = 45_000; // 45 seconds per page
 
   try {
     // Navigate with single timeout
-    await page.goto(url, { waitUntil: "networkidle2", timeout: PAGE_TIMEOUT });
+    await page.goto(url, { waitUntil: "networkidle0", timeout: PAGE_TIMEOUT });
     await delay(Math.floor(Math.random() * 500) + 300);
 
     // CAPTCHA detection
@@ -98,7 +112,7 @@ export async function scrapeHouseholdLimit(url) {
     }
 
     // Wait for the selector containing the limit
-    await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 20_000 });
+    await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 30_000 });
 
     const limit = await page.evaluate(() => {
       let text = document.querySelector(".sticky-details .attributes .short-details div")?.innerText;
@@ -122,6 +136,10 @@ export async function scrapeHouseholdLimit(url) {
     try { await page.close(); } catch {}
 
     return { url, limit: undefined, error: true, message: err.message };
+  }finally {
+    try { await page.close(); } catch (err) {
+      console.error("❌ Failed to close page:", err.message);
+    }
   }
 }
 
