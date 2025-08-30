@@ -19,7 +19,7 @@ function rotateProxyIndex() {
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
-      headless: "new",
+      headless: false,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -77,7 +77,7 @@ export async function scrapeHouseholdLimit(url) {
 
   try {
     // Navigate with single timeout
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: PAGE_TIMEOUT });
+    await page.goto(url, { waitUntil: "networkidle2", timeout: PAGE_TIMEOUT });
     await delay(Math.floor(Math.random() * 500) + 300);
 
     // CAPTCHA detection
@@ -146,7 +146,7 @@ export async function safeScrape(url) {
 
   } catch (err) {
     rotateProxyIndex();
-    console.log("🔄 Retrying due to error:", err.message);
+    console.log("🔄 Retrying in 5 seconds due to error:", err.message);
     await delay(5000);
     return safeScrape(url);
   }
