@@ -56,7 +56,7 @@ async function getBrowser() {
 
 // Safely capture a screenshot
 export async function scrapeHouseholdLimit(url) {
-  console.log("📌 Current proxy index:", currentProxyIndex);
+  // console.log("📌 Current proxy index:", currentProxyIndex);
 
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -157,7 +157,7 @@ export async function safeScrape(url) {
       rotateProxyIndex();
       captchaStreak++;
       //if hit with two subsequent captcha for the same url, skip
-      console.log("⏳ Cloudflare detected, retrying in 5s...");
+      // console.log("⏳ Cloudflare detected, retrying in 5s...");
       if(captchaStreak === 2){
         return {error: true, message: "Captcha triggered, skipping for now" + url, command: "SKIP_URL"}
       }

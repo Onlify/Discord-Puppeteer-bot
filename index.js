@@ -122,7 +122,7 @@ async function runAlternatingScraper() {
   try {
     if (!url) return;
     const result = await safeScrape(url);
-    console.log(result);
+    // console.log(result);
     
     const channel = client.channels.cache.get(alertChannelId);
 
@@ -185,7 +185,7 @@ async function runAlternatingScraper() {
   }finally{
     // Schedule next run with random delay
     const nextRun = randomDelay(MIN_INTERVAL, MAX_INTERVAL);
-    console.log(`⏳ Next run in ${(nextRun / 1000).toFixed(1)}s...`);
+    // console.log(`⏳ Next run in ${(nextRun / 1000).toFixed(1)}s...`);
     setTimeout(runAlternatingScraper, nextRun);
   }
 }
