@@ -50,7 +50,7 @@ async function capturePageScreenshot(page) {
   try {
     await page.screenshot({
       path: `screenshots/fail-${Date.now()}.png`,
-      fullPage: true,
+      fullPage: false,
     });
     console.log("🖼 Screenshot saved for debugging");
   } catch (err) {
