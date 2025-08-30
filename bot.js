@@ -1,11 +1,14 @@
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { randomUserAgent, delay, humanScroll, humanMouse } from "./botHumanActions.js";
+
 puppeteer.use(StealthPlugin());
 
 const proxies = ["192.168.0.101:1080"];
 let currentProxyIndex = 0;
 let nmbOfCaptcha = 0, nmbOfRequests = 0;
+
+let browser; // persistent browser
 
 function rotateProxyIndex() {
   const proxy = proxies[currentProxyIndex];
@@ -13,21 +16,32 @@ function rotateProxyIndex() {
   return proxy;
 }
 
+async function getBrowser() {
+  if (!browser) {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-extensions",
+        "--disable-gpu",
+        "--single-process",
+        "--disable-background-networking",
+        "--disable-sync",
+        "--disable-translate",
+        "--disable-default-apps",
+        "--mute-audio",
+      ]
+    });
+  }
+  return browser;
+}
+
 export async function scrapeHouseholdLimit(url) {
   console.log("Current proxy index:", currentProxyIndex);
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-extensions",
-      "--disable-gpu",
-      "--single-process"
-    ]
-  });
-
+  const browser = await getBrowser();
   const page = await browser.newPage();
 
   // Random user agent
@@ -38,12 +52,12 @@ export async function scrapeHouseholdLimit(url) {
     height: Math.floor(768 + Math.random() * 100),
   });
 
-  // Hard timeout wrapper for the entire scrape
   const HARD_TIMEOUT = 45_000; // 45 seconds per page
+
   return new Promise(async (resolve) => {
     const timeout = setTimeout(async () => {
       console.error(`⚠️ Scrape timed out for ${url}`);
-      try { await browser.close(); } catch {}
+      try { await page.close(); } catch {}
       resolve({ url, limit: undefined, error: true, timeout: true });
     }, HARD_TIMEOUT);
 
@@ -51,8 +65,8 @@ export async function scrapeHouseholdLimit(url) {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
       await humanMouse(page);
-      await humanScroll(page, 4);
-      await delay(Math.floor(Math.random() * 1000) + 500);
+      await humanScroll(page, 2);
+      await delay(Math.floor(Math.random() * 500) + 300);
 
       // CAPTCHA detection
       const isCaptcha = await page.evaluate(() => {
@@ -65,12 +79,14 @@ export async function scrapeHouseholdLimit(url) {
       });
 
       if (isCaptcha) {
-        console.log("CAPTCHA triggered");
+        console.log("CAPTCHA triggered, closing browser to rotate");
+        try { await browser.close(); } catch {}
+        browser = null; // force new browser next time
         resolve({ url, limit: undefined, captcha: true });
         return;
       }
 
-      await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 10_000 });
+      await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 7_000 });
 
       const limit = await page.evaluate(() => {
         let text = document.querySelector(".sticky-details .attributes .short-details div")?.innerText;
@@ -87,18 +103,11 @@ export async function scrapeHouseholdLimit(url) {
       resolve({ url, limit, inStock });
 
     } catch (err) {
-      try {
-        if (page && !page.isClosed()) {
-          await page.screenshot({ path: "screenshot.png", fullPage: true });
-        }
-      } catch (screenshotErr) {
-        console.error("Screenshot failed:", screenshotErr.message);
-      }
       console.error(`Scraping failed for ${url}:`, err.message);
       resolve({ url, limit: undefined, error: true, message: err.message });
     } finally {
       clearTimeout(timeout);
-      try { await browser.close(); } catch (closeErr) {}
+      try { await page.close(); } catch {}
     }
   });
 }
