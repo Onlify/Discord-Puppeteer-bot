@@ -1,6 +1,7 @@
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import { randomUserAgent, delay, humanScroll, humanMouse } from "./botHumanActions.js";
+// import { randomUserAgent, delay, humanScroll, humanMouse } from "./botHumanActions.js";
+import {  delay } from "./botHumanActions.js";
 
 puppeteer.use(StealthPlugin());
 
@@ -21,17 +22,23 @@ async function getBrowser() {
     browser = await puppeteer.launch({
       headless: true,
       args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-extensions",
-        "--disable-gpu",
-        "--single-process",
-        "--disable-background-networking",
-        "--disable-sync",
-        "--disable-translate",
-        "--disable-default-apps",
-        "--mute-audio",
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-extensions",
+    "--disable-gpu",
+    "--disable-background-networking",
+    "--disable-sync",
+    "--disable-translate",
+    "--disable-default-apps",
+    "--mute-audio",
+    "--disable-accelerated-2d-canvas",
+    "--disable-accelerated-jpeg-decoding",
+    "--disable-software-rasterizer",
+    "--no-first-run",
+    "--no-zygote",
+    "--disable-features=site-per-process,TranslateUI,BlinkGenPropertyTrees",
+    "--disable-renderer-backgrounding",
       ]
     });
   }
@@ -44,14 +51,26 @@ export async function scrapeHouseholdLimit(url) {
   const browser = await getBrowser();
   const page = await browser.newPage();
 
-  // Random user agent
-  await page.setUserAgent(randomUserAgent());
-  await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-  await page.setViewport({
-    width: Math.floor(1024 + Math.random() * 100),
-    height: Math.floor(768 + Math.random() * 100),
+
+  //Reduce cpu usage by disabling images and stylesheets
+    // Block heavy resources
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const type = req.resourceType();
+    if (["image", "stylesheet", "font"].includes(type)) {
+      req.abort();
+    } else {
+      req.continue();
+    }
   });
 
+  // Random user agent
+  // await page.setUserAgent(randomUserAgent());
+  await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
+  // await page.setViewport({
+  //   width: 1024 + Math.floor(Math.random() * 20),
+  //   height: 768 + Math.floor(Math.random() * 20),
+  // });
   const HARD_TIMEOUT = 45_000; // 45 seconds per page
 
   return new Promise(async (resolve) => {
@@ -64,8 +83,8 @@ export async function scrapeHouseholdLimit(url) {
     try {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
-      await humanMouse(page);
-      await humanScroll(page, 2);
+      // await humanMouse(page);
+      // await humanScroll(page, 2);
       await delay(Math.floor(Math.random() * 500) + 300);
 
       // CAPTCHA detection

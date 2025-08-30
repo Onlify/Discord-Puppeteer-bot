@@ -95,7 +95,9 @@ client.on("messageCreate", async (message) => {
 
 
 // ---------- Log in Discord ----------
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN).then(()=>{
+  runAlternatingScraper();
+})
 
 // ---------- Alternating scraper logic ----------
 let toggle = true; // true = urlOne, false = urlTwo
@@ -160,7 +162,6 @@ async function runAlternatingScraper() {
   } catch (err) {
     console.error(`Error scraping ${key}:`, err.message);
   }finally{
-    // console.log(URLS);
     // Schedule next run with random delay
     const nextRun = randomDelay(MIN_INTERVAL, MAX_INTERVAL);
     console.log(`⏳ Next run in ${(nextRun / 1000).toFixed(1)}s...`);
@@ -170,5 +171,3 @@ async function runAlternatingScraper() {
 
 console.log(new Date());
 
-// Start first scrape
-runAlternatingScraper();
