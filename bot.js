@@ -19,7 +19,7 @@ function rotateProxyIndex() {
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
-      headless: false,
+      headless: "new",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
