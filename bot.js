@@ -8,7 +8,7 @@ const proxies = ["192.168.0.101:1080"];
 let currentProxyIndex = 0;
 let nmbOfCaptcha = 0, nmbOfRequests = 0;
 
-let browser; // persistent browser instance
+let browser; // persistent browser singleton
 
 function rotateProxyIndex() {
   const proxy = proxies[currentProxyIndex];
@@ -17,7 +17,7 @@ function rotateProxyIndex() {
 }
 
 async function getBrowser() {
-  if (!browser || !browser.isConnected?.()) {
+  if (!browser) {
     browser = await puppeteer.launch({
       headless: false,
       args: [
@@ -38,31 +38,33 @@ async function getBrowser() {
         "--no-zygote",
         "--disable-features=site-per-process,TranslateUI,BlinkGenPropertyTrees",
         "--disable-renderer-backgrounding",
-      ]
+      ],
     });
+    console.log("🚀 Browser launched");
   }
   return browser;
 }
 
-async function capturePageScreenshot(page, prefix = "fail") {
+// Safely capture a screenshot
+async function capturePageScreenshot(page) {
   try {
     await page.screenshot({
-      path: `screenshots/${prefix}-${Date.now()}.png`,
-      fullPage: true
+      path: `screenshots/fail-${Date.now()}.png`,
+      fullPage: true,
     });
-    console.log("Screenshot saved for debugging");
-  } catch (e) {
-    console.error("Screenshot failed:", e.message);
+    console.log("🖼 Screenshot saved for debugging");
+  } catch (err) {
+    console.error("❌ Failed to take screenshot:", err.message);
   }
 }
 
 export async function scrapeHouseholdLimit(url) {
-  console.log("Current proxy index:", currentProxyIndex);
+  console.log("📌 Current proxy index:", currentProxyIndex);
 
   const browser = await getBrowser();
   const page = await browser.newPage();
 
-  // Reduce CPU usage
+  // Block heavy resources to reduce CPU
   await page.setRequestInterception(true);
   page.on("request", (req) => {
     const type = req.resourceType();
@@ -71,17 +73,11 @@ export async function scrapeHouseholdLimit(url) {
   });
 
   await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-
-  const HARD_TIMEOUT = 45_0000; // 45 seconds
+  const PAGE_TIMEOUT = 45_000; // 45 seconds per page
 
   try {
-    await Promise.race([
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`⚠️ Scrape timed out for ${url}`)), HARD_TIMEOUT)
-      ),
-      page.goto(url, { waitUntil: "domcontentloaded", timeout: HARD_TIMEOUT }),
-    ]);
-
+    // Navigate with single timeout
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: PAGE_TIMEOUT });
     await delay(Math.floor(Math.random() * 500) + 300);
 
     // CAPTCHA detection
@@ -95,14 +91,13 @@ export async function scrapeHouseholdLimit(url) {
     });
 
     if (isCaptcha) {
-      console.log("CAPTCHA triggered, taking screenshot and closing browser");
-      await capturePageScreenshot(page, "captcha");
+      console.log("⚠️ CAPTCHA triggered, closing browser to rotate");
       try { await browser.close(); } catch {}
-      browser = null;
+      browser = null; // force new browser next time
       return { url, limit: undefined, captcha: true };
     }
 
-    // Wait for selector
+    // Wait for the selector containing the limit
     await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 20_000 });
 
     const limit = await page.evaluate(() => {
@@ -117,12 +112,11 @@ export async function scrapeHouseholdLimit(url) {
       return !document.querySelector(".sticky-details .attributes")?.innerText?.toLowerCase().includes("currently unavailable");
     });
 
-    await page.close();
+    await page.close(); // close page cleanly
     return { url, limit, inStock };
 
   } catch (err) {
-    console.error(`Scraping failed for ${url}:`, err.message);
-
+    console.error(`❌ Scraping failed for ${url}:`, err.message);
     await capturePageScreenshot(page);
 
     try { await page.close(); } catch {}
@@ -138,8 +132,8 @@ export async function safeScrape(url) {
     if (result.captcha) {
       rotateProxyIndex();
       nmbOfCaptcha++;
-      console.log("Number of Captcha triggers: " + nmbOfCaptcha);
-      console.log("⚠️ Cloudflare detected, retrying in 5s...");
+      console.log("⚠️ Number of Captcha triggers: " + nmbOfCaptcha);
+      console.log("⏳ Cloudflare detected, retrying in 5s...");
       await delay(5000);
       return safeScrape(url);
     }
@@ -147,11 +141,12 @@ export async function safeScrape(url) {
     if (result.error) throw new Error(result.message || "Unexpected error happened");
 
     nmbOfRequests++;
-    console.log("Number of requests: " + nmbOfRequests);
+    console.log("✅ Number of requests: " + nmbOfRequests);
     return result;
 
   } catch (err) {
     rotateProxyIndex();
+    console.log("🔄 Retrying due to error:", err.message);
     await delay(5000);
     return safeScrape(url);
   }
