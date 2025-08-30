@@ -32,7 +32,10 @@ client.on("messageCreate", async (message) => {
         "`!url2 <mode> <url>` → set urlTwo\n" +
         "`!url1` → clear urlOne\n" +
         "`!url2` → clear urlTwo\n" +
-        "`!listurls` → show currently active URLs\n" 
+        "`!listurls` → show currently active URLs\n" +
+        "`<mode>` -> `HHL` `INSTOCK` `BOTH`\n",
+        "--------------------------------------\n"+
+        "Please make sure the <url> is valid by testing it on your browser"
       );
 
     } else if (message.content.startsWith("!url1")) {
@@ -115,13 +118,25 @@ async function runAlternatingScraper() {
 
   const { url, mode } = URLS[key];
 
-  if (!url) return;
-
+  
   try {
+    if (!url) return;
     const result = await safeScrape(url);
     console.log(result);
-
+    
     const channel = client.channels.cache.get(alertChannelId);
+
+    //Checking for errors
+    if(result.error){
+      if(result.command === "SKIP_URL"){
+        return;
+      }else if(result.command === "REMOVE_URL"){
+        URLS[key] = {url : null, mode : null, alerted : false};
+        channel.send(result.message || "Unexpected error happened " + key + " was removed");
+        return;
+      }
+    }
+    //-------------------
 
     if (channel && channel.isTextBased()) {
       // HHL mode
@@ -138,7 +153,7 @@ async function runAlternatingScraper() {
 
       // INSTOCK mode
       if (mode === "INSTOCK") {
-        if (!result.inStock) {
+        if (result.inStock !== true) {
           // Condition failed, reset alerted
           URLS[key].alerted = false;
         } else if (!URLS[key].alerted) {
@@ -150,7 +165,7 @@ async function runAlternatingScraper() {
 
       // BOTH mode
       if (mode === "BOTH") {
-        if (result.limit !== null || !result.inStock) {
+        if (result.limit !== null || result.inStock !== true) {
           // Condition failed, reset alerted
           URLS[key].alerted = false;
         } else if (!URLS[key].alerted) {

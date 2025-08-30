@@ -6,8 +6,7 @@ puppeteer.use(StealthPlugin());
 
 const proxies = ["192.168.0.101:1080"];
 let currentProxyIndex = 0;
-let nmbOfCaptcha = 0, nmbOfRequests = 0;
-
+let nmbOfRequests = 0,  captchaStreak = 0, failureStreak = 0;
 let browser; // persistent browser singleton
 
 function rotateProxyIndex() {
@@ -119,8 +118,18 @@ export async function scrapeHouseholdLimit(url) {
     });
 
     const inStock = await page.evaluate(() => {
-      return !document.querySelector(".sticky-details .attributes")?.innerText?.toLowerCase().includes("currently unavailable");
-    });
+     const element = document.querySelector(".sticky-details .attributes");
+      
+      // If element doesn't exist, we can't determine stock status
+      if (!element || !element.innerText) {
+        return false;
+      }
+      
+      const text = element.innerText.toLowerCase();
+      
+      // Return true only if element exists AND doesn't contain "currently unavailable"
+      return !text.includes("currently unavailable");
+  });
 
     await page.close();
     pageClosed = true;
@@ -146,9 +155,12 @@ export async function safeScrape(url) {
 
     if (result.captcha) {
       rotateProxyIndex();
-      nmbOfCaptcha++;
-      console.log("⚠️ Number of Captcha triggers: " + nmbOfCaptcha);
+      captchaStreak++;
+      //if hit with two subsequent captcha for the same url, skip
       console.log("⏳ Cloudflare detected, retrying in 5s...");
+      if(captchaStreak === 2){
+        return {error: true, message: "Captcha triggered, skipping for now" + url, command: "SKIP_URL"}
+      }
       await delay(5000);
       return safeScrape(url);
     }
@@ -157,11 +169,17 @@ export async function safeScrape(url) {
 
     nmbOfRequests++;
     console.log("✅ Number of requests: " + nmbOfRequests);
+    captchaStreak = 0;
+    failureStreak = 0;
     return result;
-
   } catch (err) {
+    failureStreak++;
     rotateProxyIndex();
     console.log("🔄 Retrying in 5 seconds due to error:", err.message);
+    //if the url failed 4 times, remove
+    if(failureStreak === 4){
+      return {error: true, message: "`URL was removed due to not loading properly or wrong path` -> " + url, command: "REMOVE_URL"}
+    }
     await delay(5000);
     return safeScrape(url);
   }
