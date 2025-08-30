@@ -11,8 +11,5 @@ const client = new Client({
   ]
 });
 
-client.once(Events.ClientReady, (c) => {
-  console.log(`✅ Logged in as ${c.user.tag}`);
-});
 
 export default client;

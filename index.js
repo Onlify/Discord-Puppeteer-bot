@@ -1,5 +1,7 @@
 import { safeScrape } from "./bot.js"; // safeScrape handles Cloudflare retries
 import client from "./discord.js";
+import { Client, GatewayIntentBits, Events } from "discord.js";
+
 import { randomDelay } from "./utils.js";
 import dotenv from "dotenv";
 dotenv.config({quiet: true});
@@ -96,8 +98,12 @@ client.on("messageCreate", async (message) => {
 
 // ---------- Log in Discord ----------
 client.login(process.env.DISCORD_TOKEN).then(()=>{
-  runAlternatingScraper();
 })
+
+client.once(Events.ClientReady, (c) => {
+  console.log(`✅ Logged in as ${c.user.tag}`);
+  runAlternatingScraper();
+});
 
 // ---------- Alternating scraper logic ----------
 let toggle = true; // true = urlOne, false = urlTwo
