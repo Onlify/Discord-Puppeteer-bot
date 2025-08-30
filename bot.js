@@ -119,6 +119,16 @@ export async function scrapeHouseholdLimit(url) {
 
     } catch (err) {
       console.error(`Scraping failed for ${url}:`, err.message);
+        // Take a screenshot for debugging
+  try {
+    await page.screenshot({ 
+      path: `screenshots/fail-${Date.now()}.png`, 
+      fullPage: true 
+    });
+    console.log("Screenshot saved for debugging");
+  } catch (screenshotErr) {
+    console.error("Failed to take screenshot:", screenshotErr.message);
+  }
       resolve({ url, limit: undefined, error: true, message: err.message });
     } finally {
       clearTimeout(timeout);
