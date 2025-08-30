@@ -16,6 +16,16 @@ function rotateProxyIndex() {
   return proxy;
 }
 
+async function capturePageScreenshot(page) {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    await page.screenshot({ path: `screenshot-${timestamp}.png`, fullPage: true });
+    console.log("📸 Screenshot captured");
+  } catch (err) {
+    console.error("❌ Failed to capture screenshot:", err.message);
+  }
+}
+
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
@@ -118,7 +128,7 @@ export async function scrapeHouseholdLimit(url) {
 
   } catch (err) {
     console.error(`❌ Scraping failed for ${url}:`, err.message);
-    await capturePageScreenshot(page);
+    // await capturePageScreenshot(page);
 
     return { url, limit: undefined, error: true, message: err.message };
 
