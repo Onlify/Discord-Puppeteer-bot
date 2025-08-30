@@ -46,55 +46,42 @@ async function getBrowser() {
 }
 
 // Safely capture a screenshot
-async function capturePageScreenshot(page) {
-  try {
-    await page.screenshot({
-      path: `screenshots/fail-${Date.now()}.png`,
-      fullPage: true,
-    });
-    console.log("🖼 Screenshot saved for debugging");
-  } catch (err) {
-    console.error("❌ Failed to take screenshot:", err.message);
-  }
-}
-
 export async function scrapeHouseholdLimit(url) {
   console.log("📌 Current proxy index:", currentProxyIndex);
 
   const browser = await getBrowser();
   const page = await browser.newPage();
+  let pageClosed = false; // Track page closure
 
   // Block heavy resources to reduce CPU
   await page.setRequestInterception(true);
-page.on("request", (req) => {
-  const url = req.url();
-  const type = req.resourceType();
-  const blockedDomains = [
-    "google-analytics.com",
-    "googletagmanager.com",
-    "quantserve.com",
-    "doubleclick.net",
-    "adzerk.net",
-  ];
-  const isResourceToBlock = ["image", "stylesheet", "font", "media"].includes(type);
-  const isDomainToBlock = blockedDomains.some(domain => url.includes(domain));
+  page.on("request", (req) => {
+    const url = req.url();
+    const type = req.resourceType();
+    const blockedDomains = [
+      "google-analytics.com",
+      "googletagmanager.com",
+      "quantserve.com",
+      "doubleclick.net",
+      "adzerk.net",
+    ];
+    const isResourceToBlock = ["image", "stylesheet", "font", "media"].includes(type);
+    const isDomainToBlock = blockedDomains.some(domain => url.includes(domain));
 
-  if (isResourceToBlock || isDomainToBlock) {
-    req.abort();
-  } else {
-    req.continue();
-  }
-});
+    if (isResourceToBlock || isDomainToBlock) {
+      req.abort();
+    } else {
+      req.continue();
+    }
+  });
 
   await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
   const PAGE_TIMEOUT = 45_000; // 45 seconds per page
 
   try {
-    // Navigate with single timeout
     await page.goto(url, { waitUntil: "networkidle0", timeout: PAGE_TIMEOUT });
     await delay(Math.floor(Math.random() * 500) + 300);
 
-    // CAPTCHA detection
     const isCaptcha = await page.evaluate(() => {
       if (document.querySelector('[data-cf-turnstile-response]')) return true;
       if (document.querySelector('.zone-name-title') && document.body.innerText.includes('Verifying you are human')) return true;
@@ -107,11 +94,10 @@ page.on("request", (req) => {
     if (isCaptcha) {
       console.log("⚠️ CAPTCHA triggered, closing browser to rotate");
       try { await browser.close(); } catch {}
-      browser = null; // force new browser next time
+      browser = null;
       return { url, limit: undefined, captcha: true };
     }
 
-    // Wait for the selector containing the limit
     await page.waitForSelector(".sticky-details .attributes .short-details div", { timeout: 30_000 });
 
     const limit = await page.evaluate(() => {
@@ -126,19 +112,20 @@ page.on("request", (req) => {
       return !document.querySelector(".sticky-details .attributes")?.innerText?.toLowerCase().includes("currently unavailable");
     });
 
-    await page.close(); // close page cleanly
+    await page.close();
+    pageClosed = true;
     return { url, limit, inStock };
 
   } catch (err) {
     console.error(`❌ Scraping failed for ${url}:`, err.message);
     await capturePageScreenshot(page);
 
-    try { await page.close(); } catch {}
-
     return { url, limit: undefined, error: true, message: err.message };
-  }finally {
-    try { await page.close(); } catch (err) {
-      console.error("❌ Failed to close page:", err.message);
+
+  } finally {
+    if (!pageClosed) {
+      try { await page.close(); pageClosed = true; } 
+      catch (err) { console.error("❌ Failed to close page:", err.message); }
     }
   }
 }
